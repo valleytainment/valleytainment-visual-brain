@@ -3,10 +3,29 @@
 AI **visual performance instrument** for EDM — not an AI video generator.
 
 ```text
-MUSIC → UNDERSTANDS → FEELS → DIRECTS → PERFORMS (Godot)
+MUSIC → UNDERSTANDS → FEELS → DIRECTS → LIVING MONSTER → PERFORMS
 ```
 
-## Quick start (do-it-all)
+## v0.2 — Living Monster
+
+The canonical Valleytainment logo remains the protected brand asset. The Godot renderer now makes it feel sentient without asking an image model to redraw the wordmark every frame:
+
+- persistent asymmetric breathing, even in silence
+- double-pulse heartbeat and throat/mouth dilation
+- viscous tongue/slime UV motion
+- wet pseudo-normal/specular material response
+- deterministic blinking and wandering gaze
+- audio-reactive glowing eyes
+- life aura, breath mist, drool particles, glitter, and drop spit bursts
+- true radial shockwave instead of a scaled rectangle
+- bass depth ghosts and dimensional parallax
+- pre-drop vacuum/blackout and drop eruption
+- mipmapped post bloom with restrained chromatic optics
+- operator HUD hidden from stage output by default
+
+The live analyzer is also level-aware: silence can no longer be normalized into fake full-energy bands.
+
+## Quick start
 
 ```bash
 cd valleytainment-visual-brain
@@ -16,46 +35,97 @@ pip install -e ".[dev]"
 # ONE COMMAND — live brain + panel + Godot
 vbrain launch
 
-# Or generate a real AI world plate into Godot (uses your local ComfyUI / SD1.5)
+# Prepared show pack
+vbrain analyze /path/to/track.wav --seed 926183
+
+# Local AI world plate through ComfyUI
 vbrain factory generate-world
 ```
 
-Godot keys: `Space` · `L` live · `H` hybrid · `R` restart · `[` `]` seek
+Set `GODOT_BIN=/path/to/Godot` if the launcher cannot discover Godot automatically.
+
+### Stage keys
+
+| Key | Action |
+| --- | --- |
+| `F1` | Show/hide operator HUD |
+| `F11` | Fullscreen/windowed |
+| `Space` | Play/pause prepared timeline |
+| `L` | Live mode |
+| `H` | Hybrid prepared + live mode |
+| `R` | Restart prepared show |
+| `[` / `]` | Seek ±4 seconds |
 
 ## Commands
 
 | Command | Purpose |
-| ------- | ------- |
+| --- | --- |
+| `vbrain launch` | Supervised one-command stack |
 | `vbrain analyze TRACK` | Prepared show pack |
-| `vbrain live` | Live FFT brain + performer panel |
+| `vbrain live` | Live FFT/beat brain + performer panel |
 | `vbrain serve` | Panel only |
 | `vbrain status` | GPU tier + Comfy + outputs |
 | `vbrain factory status` | AI factory routing |
-| `vbrain factory init-manifest` | Register logo hero asset |
-| `vbrain factory queue WORKFLOW` | ComfyUI submit (dry-run safe) |
+| `vbrain factory init-manifest` | Register protected logo hero asset |
+| `vbrain factory queue WORKFLOW` | Submit ComfyUI workflow |
+| `vbrain factory generate-world` | Generate/ingest world plate with graceful fallback |
 | `vbrain list-styles` | Visual style presets |
 
-## Hero scene
+## Architecture
 
 ```text
-VALLEYTAINMENT LOGO
-  kick pulse · bass breathe · snare gold flash · hat glitter
-  plasma flow · portal charge · blackout · drop shockwave
+                     AUDIO / TRACK
+                          │
+              ┌───────────┴───────────┐
+              │                       │
+         PREPARED BRAIN          LIVE BRAIN
+       sections + cue map     level-aware FFT
+              │              onset/BPM/sections
+              └───────────┬───────────┘
+                          │
+                    VISUAL STATE
+                          │
+              ┌───────────┴───────────┐
+              │                       │
+        PROTECTED LOGO          AI WORLD PLATES
+              │                  ComfyUI/local
+              │                       │
+              └───────────┬───────────┘
+                          │
+                  GODOT 4.6 RUNTIME
+                          │
+        breath · eyes · slime · portal · particles
+                          │
+                  LED / OBS / PROJECTOR
 ```
 
-Godot keys: `Space` play/pause · `L` live API · `R` restart · `[` `]` seek
+## Validation
 
-## Phases
+CI runs:
 
-| Phase | Status |
-| ----- | ------ |
-| 1 Music brain + CI + fixtures | **Done** |
-| 2 Logo hero visual engine | **Done** |
-| 3 AI factory (Comfy client, GPU router, manifest) | **Done** (models optional/local) |
-| 4 Live brain (FFT, BPM, sections, cues) | **Done** |
-| 5 Performance panel / LED / OBS presets | **Done** |
+- Python 3.11 and 3.13
+- Ruff lint + format checks
+- full pytest suite
+- static Godot asset contracts
+- **real Godot 4.6.3 headless import and runtime boot**
 
-Heavy FLUX/Wan/Hunyuan weights are **not** downloaded by this repo — wire ComfyUI when you have a GPU.
+The project intentionally targets the Godot 4.6 stable compatibility line.
+
+## AI / GPU strategy
+
+Heavy FLUX/Wan/Hunyuan weights are not bundled. The performance machine can remain CPU/low-GPU and play prebuilt assets, while a stronger workstation or free external compute prepares AI plates offline. ComfyUI is an optional factory, never a dependency in the 60 FPS stage path.
+
+## Repo map
+
+```text
+packages/vbrain/             Python music brain, live engine, AI routing, CLI
+apps/visual-engine/          Godot 4.6 living visual instrument
+apps/control-panel/          Local performer controls
+ai/comfyui/                  Workflow/API integration
+assets/                      Generated asset manifest + world plates
+shows/                       Compiled show packs (ignored by Git)
+tests/                       Python + runtime contracts
+```
 
 ## License
 
