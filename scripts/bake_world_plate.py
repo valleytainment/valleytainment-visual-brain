@@ -20,9 +20,7 @@ def bake(seed: int = 926183, width: int = 1600, height: int = 900) -> Image.Imag
     ribs = np.abs(np.sin(a * 8.0)) ** 6
     vignette = np.clip(1.2 - r, 0, 1)
 
-    gold = np.stack(
-        [np.ones_like(r), 0.78 * np.ones_like(r), 0.28 * np.ones_like(r)], axis=-1
-    )
+    gold = np.stack([np.ones_like(r), 0.78 * np.ones_like(r), 0.28 * np.ones_like(r)], axis=-1)
     plasma = 0.5 + 0.5 * np.stack(
         [
             np.cos(tunnel * 6.28),
