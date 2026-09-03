@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import pytest
-
 from vbrain.performance import PerformanceState, validate_control_patch, write_live_sidecar
 
 
