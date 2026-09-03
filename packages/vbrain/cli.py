@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich import print as rprint
@@ -30,7 +29,7 @@ def analyze(
     ollama: bool = typer.Option(False, "--ollama", help="Use local Ollama/Qwen director"),
     ollama_model: str = typer.Option("qwen3:8b", help="Ollama model tag"),
     stems: bool = typer.Option(False, "--stems", help="Run Demucs stem separation if installed"),
-    show_id: Optional[str] = typer.Option(None, help="Override show id"),
+    show_id: str | None = typer.Option(None, help="Override show id"),
 ) -> None:
     """Analyze a track and write a prepared show pack."""
     rprint(f"[bold]Analyzing[/bold] {track}")

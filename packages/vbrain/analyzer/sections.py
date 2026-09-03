@@ -6,7 +6,6 @@ import numpy as np
 
 from vbrain.schemas import (
     SECTION_DEFAULT_INTENSITY,
-    IntensityBand,
     SectionLabel,
     SectionSpan,
     intensity_band,
@@ -26,9 +25,7 @@ def _label_from_state(
     # Sustained heavy body OR sharp drop onset
     if intensity >= 0.82 or (drop_prob >= 0.72 and intensity >= 0.70):
         return SectionLabel.DROP
-    if (drop_prob >= 0.55 and rising and intensity >= 0.45) or (
-        intensity >= 0.75 and rising
-    ):
+    if (drop_prob >= 0.55 and rising and intensity >= 0.45) or (intensity >= 0.75 and rising):
         return SectionLabel.PRE_DROP
     if rising and intensity >= 0.32:
         return SectionLabel.BUILD
@@ -105,13 +102,14 @@ def detect_sections(
 
     # Fix first/last heuristics
     if promoted:
-        first_label, a, b = promoted[0]
+        _first_label, a, b = promoted[0]
         if float(np.mean(intensity[a:b])) < 0.3:
             promoted[0] = (SectionLabel.INTRO, a, b)
-        last_label, a, b = promoted[-1]
-        if last_label not in (SectionLabel.DROP, SectionLabel.SECOND_DROP) and float(
-            np.mean(intensity[a:b])
-        ) < 0.35:
+        _last_label, a, b = promoted[-1]
+        if (
+            _last_label not in (SectionLabel.DROP, SectionLabel.SECOND_DROP)
+            and float(np.mean(intensity[a:b])) < 0.35
+        ):
             promoted[-1] = (SectionLabel.OUTRO, a, b)
 
     sections: list[SectionSpan] = []
@@ -145,7 +143,9 @@ def detect_sections(
     return sections
 
 
-def compute_tension(intensity: np.ndarray, brightness: np.ndarray, density: np.ndarray) -> np.ndarray:
+def compute_tension(
+    intensity: np.ndarray, brightness: np.ndarray, density: np.ndarray
+) -> np.ndarray:
     raw = 0.5 * intensity + 0.25 * brightness + 0.25 * density
     return np.clip(raw, 0.0, 1.0)
 

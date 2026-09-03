@@ -1,30 +1,114 @@
-[gd_scene load_steps=5 format=3 uid="uid://vbrain_main"]
+[gd_scene load_steps=12 format=3 uid="uid://vbrain_main"]
 
 [ext_resource type="Script" path="res://scripts/show_player.gd" id="1_player"]
-[ext_resource type="Shader" path="res://shaders/reactive_tunnel.gdshader" id="2_shader"]
-[ext_resource type="Script" path="res://scripts/audio_bus.gd" id="3_audio"]
+[ext_resource type="Script" path="res://scripts/audio_bus.gd" id="2_audio"]
+[ext_resource type="Script" path="res://scripts/logo_hero.gd" id="3_hero"]
+[ext_resource type="Shader" path="res://shaders/cosmic_portal.gdshader" id="4_portal"]
+[ext_resource type="Shader" path="res://shaders/logo_reactive.gdshader" id="5_logo_sh"]
+[ext_resource type="Shader" path="res://shaders/post_fx.gdshader" id="6_post"]
+[ext_resource type="Texture2D" path="res://assets/brand/valleytainment_logo.png" id="7_logo_tex"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_tunnel"]
-shader = ExtResource("2_shader")
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_portal"]
+shader = ExtResource("4_portal")
 shader_parameter/intensity = 0.2
 shader_parameter/kick = 0.0
 shader_parameter/bass = 0.0
 shader_parameter/hat = 0.0
+shader_parameter/drop = 0.0
+shader_parameter/charge = 0.0
+shader_parameter/blackout = 0.0
+shader_parameter/shockwave = 0.0
 shader_parameter/time_scale = 1.0
-shader_parameter/glitch = 0.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_logo"]
+shader = ExtResource("5_logo_sh")
+shader_parameter/intensity = 0.2
+shader_parameter/kick = 0.0
+shader_parameter/bass = 0.0
+shader_parameter/snare = 0.0
+shader_parameter/hat = 0.0
+shader_parameter/drop = 0.0
+shader_parameter/blackout = 0.0
+shader_parameter/plasma_flow = 0.35
+shader_parameter/parallax = 0.0
+shader_parameter/shockwave = 0.0
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_glitter"]
+emission_shape = 1
+emission_sphere_radius = 220.0
+direction = Vector3(0, -1, 0)
+spread = 180.0
+initial_velocity_min = 20.0
+initial_velocity_max = 80.0
+gravity = Vector3(0, 40, 0)
+scale_min = 0.5
+scale_max = 2.0
+color = Color(1, 0.85, 0.4, 0.75)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_post"]
+shader = ExtResource("6_post")
+shader_parameter/bloom = 0.45
 shader_parameter/chromatic = 0.0
-shader_parameter/color_a = Color(0.04, 0.04, 0.08, 1)
-shader_parameter/color_b = Color(1, 0, 0.235, 1)
-shader_parameter/color_c = Color(0.302, 0.933, 0.918, 1)
+shader_parameter/flash = 0.0
+shader_parameter/vignette = 0.4
 
 [node name="Main" type="Node"]
 script = ExtResource("1_player")
 
 [node name="AudioBus" type="Node" parent="."]
-script = ExtResource("3_audio")
+script = ExtResource("2_audio")
 
-[node name="ViewportRoot" type="ColorRect" parent="."]
-material = SubResource("ShaderMaterial_tunnel")
+[node name="Hero" type="Node2D" parent="."]
+script = ExtResource("3_hero")
+
+[node name="PortalLayer" type="CanvasLayer" parent="Hero"]
+layer = 0
+
+[node name="Portal" type="ColorRect" parent="Hero/PortalLayer"]
+material = SubResource("ShaderMaterial_portal")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="LogoLayer" type="CanvasLayer" parent="Hero"]
+layer = 1
+
+[node name="Logo" type="Sprite2D" parent="Hero/LogoLayer"]
+material = SubResource("ShaderMaterial_logo")
+position = Vector2(960, 520)
+scale = Vector2(0.72, 0.72)
+texture = ExtResource("7_logo_tex")
+
+[node name="Glitter" type="GPUParticles2D" parent="Hero/LogoLayer"]
+position = Vector2(960, 560)
+amount = 24
+process_material = SubResource("ParticleProcessMaterial_glitter")
+lifetime = 1.2
+preprocess = 0.2
+visibility_rect = Rect2(-400, -400, 800, 800)
+
+[node name="FXLayer" type="CanvasLayer" parent="Hero"]
+layer = 2
+
+[node name="ShockRing" type="Node2D" parent="Hero/FXLayer"]
+visible = false
+position = Vector2(960, 540)
+
+[node name="Ring" type="ColorRect" parent="Hero/FXLayer/ShockRing"]
+offset_left = -40.0
+offset_top = -40.0
+offset_right = 40.0
+offset_bottom = 40.0
+color = Color(1, 0.82, 0.3, 0.35)
+
+[node name="PostLayer" type="CanvasLayer" parent="."]
+layer = 8
+
+[node name="PostFX" type="ColorRect" parent="PostLayer"]
+material = SubResource("ShaderMaterial_post")
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -33,16 +117,17 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="HUD" type="CanvasLayer" parent="."]
+layer = 10
 
 [node name="Info" type="Label" parent="HUD"]
 offset_left = 24.0
 offset_top = 20.0
-offset_right = 900.0
-offset_bottom = 160.0
-theme_override_colors/font_color = Color(0.85, 0.9, 0.95, 0.85)
+offset_right = 980.0
+offset_bottom = 140.0
+theme_override_colors/font_color = Color(0.9, 0.92, 0.95, 0.9)
 theme_override_font_sizes/font_size = 18
 text = "VALLEYTAINMENT VISUAL BRAIN
-Drop shows/<id>/runtime.json → res://../../shows/  |  Space = play/pause"
+Hero: monster logo · Space play/pause · R restart · [ ] seek"
 
 [node name="SectionLabel" type="Label" parent="HUD"]
 anchors_preset = 2
@@ -50,9 +135,9 @@ anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 24.0
 offset_top = -80.0
-offset_right = 640.0
+offset_right = 720.0
 offset_bottom = -24.0
 grow_vertical = 0
-theme_override_colors/font_color = Color(1, 0, 0.235, 0.95)
+theme_override_colors/font_color = Color(1, 0.78, 0.28, 0.95)
 theme_override_font_sizes/font_size = 28
 text = "SECTION —"

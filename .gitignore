@@ -16,6 +16,7 @@ assets/demo/*.wav
 *.flac
 .godot/
 apps/visual-engine/.godot/
+apps/visual-engine/assets/runtime.json
 *.translation
 .env
 .demucs/

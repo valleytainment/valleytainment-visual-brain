@@ -35,7 +35,9 @@ def spectral_brightness(mag: np.ndarray, freqs: np.ndarray) -> np.ndarray:
     return np.clip(centroid / max(nyquist, 1.0), 0.0, 1.0)
 
 
-def rhythmic_density(onset_env: np.ndarray, hop_times: np.ndarray, window_s: float = 2.0) -> np.ndarray:
+def rhythmic_density(
+    onset_env: np.ndarray, hop_times: np.ndarray, window_s: float = 2.0
+) -> np.ndarray:
     """Local onset activity density."""
     if len(onset_env) == 0:
         return onset_env

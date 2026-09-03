@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install package
+        run: pip install -e ".[dev]"
+
+      - name: Ruff check
+        run: ruff check packages tests scripts
+
+      - name: Ruff format
+        run: ruff format --check packages tests scripts
+
+      - name: Pytest
+        run: pytest -q
+
+  godot-assets:
+    name: Godot asset smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify hero scene assets
+        run: |
+          set -euo pipefail
+          test -f apps/visual-engine/project.godot
+          test -f apps/visual-engine/scenes/main.tscn
+          test -f apps/visual-engine/scripts/show_player.gd
+          test -f apps/visual-engine/scripts/logo_hero.gd
+          test -f apps/visual-engine/shaders/logo_reactive.gdshader
+          test -f apps/visual-engine/shaders/cosmic_portal.gdshader
+          test -f apps/visual-engine/shaders/post_fx.gdshader
+          test -f apps/visual-engine/assets/brand/valleytainment_logo.png
+          test -f apps/visual-engine/assets/fixtures/demo_runtime.json
+          # Basic texture import stub present or creatable by Godot later
+          python3 - <<'PY'
+          from pathlib import Path
+          logo = Path("apps/visual-engine/assets/brand/valleytainment_logo.png")
+          assert logo.stat().st_size > 10_000, "logo missing or too small"
+          runtime = Path("apps/visual-engine/assets/fixtures/demo_runtime.json")
+          import json
+          data = json.loads(runtime.read_text())
+          for key in ("show_id", "bpm", "duration_s", "sections", "frames", "cues", "story"):
+              assert key in data, f"missing runtime key: {key}"
+          assert len(data["frames"]) >= 8
+          assert len(data["sections"]) >= 2
+          print("godot-assets ok", logo.stat().st_size, "bytes logo,", len(data["frames"]), "frames")
+          PY

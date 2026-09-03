@@ -201,7 +201,9 @@ class RuleBasedDirector:
             color_state=rng.choice(colors),
             camera=CameraPlan(
                 movement=beh["camera"],
-                shake=0.8 if section.label in (SectionLabel.DROP, SectionLabel.SECOND_DROP) else 0.05,
+                shake=0.8
+                if section.label in (SectionLabel.DROP, SectionLabel.SECOND_DROP)
+                else 0.05,
                 fov_bias=0.3 if section.label == SectionLabel.BUILD else 0.0,
             ),
             particles=ParticlePlan(
@@ -271,7 +273,5 @@ class OllamaDirector:
             return VisualStory.model_validate(data)
         except Exception:
             story = self._fallback.direct(analysis, style, seed)
-            story.director_notes = (
-                f"Ollama unavailable or invalid JSON (model={self.model}); used rule-based fallback."
-            )
+            story.director_notes = f"Ollama unavailable or invalid JSON (model={self.model}); used rule-based fallback."
             return story

@@ -84,7 +84,7 @@ def _estimate_tempo(onset_env: np.ndarray, sr: int, hop: int) -> float:
 def _beat_track(onset_env: np.ndarray, sr: int, hop: int, bpm: float) -> np.ndarray:
     """Simple beat grid snapped to onset peaks near expected period."""
     fps = sr / hop
-    period = max(1, int(round(fps * 60.0 / bpm)))
+    period = max(1, round(fps * 60.0 / bpm))
     # Pick strongest onset in each period window
     beats = []
     i = 0
