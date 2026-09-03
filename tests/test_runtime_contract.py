@@ -58,12 +58,9 @@ def test_build_runtime_export_from_pack(tmp_path: Path):
     from vbrain.analyzer import analyze_track
     from vbrain.director import plan_show
 
-    demo = Path(__file__).resolve().parents[1] / "assets" / "demo" / "demo_drop.wav"
-    if not demo.exists():
-        import runpy
+    from tests.helpers import ensure_demo_wav
 
-        runpy.run_path(str(Path(__file__).resolve().parents[1] / "scripts" / "make_demo_track.py"))
-
+    demo = ensure_demo_wav()
     pack = plan_show(analyze_track(demo, frame_stride=16), seed=1, show_id="contract")
     runtime = build_runtime_export(pack, frame_every=4)
     assert isinstance(runtime, RuntimeExport)

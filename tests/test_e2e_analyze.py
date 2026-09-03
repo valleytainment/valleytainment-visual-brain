@@ -6,15 +6,11 @@ from vbrain.analyzer import analyze_track
 from vbrain.director import plan_show
 from vbrain.showpack import write_show_pack
 
+from tests.helpers import ensure_demo_wav
+
 
 def test_analyze_demo_track(tmp_path: Path):
-    demo = Path(__file__).resolve().parents[1] / "assets" / "demo" / "demo_drop.wav"
-    if not demo.exists():
-        # Generate on the fly if fixture missing
-        import runpy
-
-        runpy.run_path(str(Path(__file__).resolve().parents[1] / "scripts" / "make_demo_track.py"))
-
+    demo = ensure_demo_wav()
     analysis = analyze_track(demo)
     assert analysis.bpm > 100
     assert analysis.duration_s > 5

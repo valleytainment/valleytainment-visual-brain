@@ -26,6 +26,9 @@ jobs:
       - name: Install package
         run: pip install -e ".[dev]"
 
+      - name: Generate demo audio fixture
+        run: python scripts/make_demo_track.py
+
       - name: Ruff check
         run: ruff check packages tests scripts
 
