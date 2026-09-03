@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 
 MAX_BODY_BYTES = 32 * 1024
 ALLOWED_MODES = {"PREPARED", "LIVE", "HYBRID"}
+ALLOWED_CREATURE_PROFILES = {"BALANCED", "WET", "CREEPY", "AGGRESSIVE", "UNHINGED"}
 ALLOWED_CUES = {
     "tick",
     "trigger_drop",
@@ -29,6 +30,7 @@ CONTROL_KEYS = {
     "resolution",
     "seed",
     "style",
+    "creature_profile",
     "intensity_bias",
     "blackout",
 }
@@ -51,6 +53,12 @@ def validate_control_patch(patch: dict[str, Any]) -> dict[str, Any]:
         elif key == "mode":
             if not isinstance(value, str) or value.upper() not in ALLOWED_MODES:
                 raise ValueError(f"mode must be one of {sorted(ALLOWED_MODES)}")
+            clean[key] = value.upper()
+        elif key == "creature_profile":
+            if not isinstance(value, str) or value.upper() not in ALLOWED_CREATURE_PROFILES:
+                raise ValueError(
+                    f"creature_profile must be one of {sorted(ALLOWED_CREATURE_PROFILES)}"
+                )
             clean[key] = value.upper()
         elif key == "resolution":
             if not isinstance(value, str):
@@ -99,6 +107,7 @@ class PerformanceState:
             "hero_scene": "valleytainment_logo",
             "seed": 926183,
             "style": "biomechanical_cyber_cathedral",
+            "creature_profile": "BALANCED",
         }
         self.controls: dict[str, Any] = {
             "playing": True,
@@ -106,6 +115,7 @@ class PerformanceState:
             "resolution": "1920x1080",
             "seed": 926183,
             "style": "biomechanical_cyber_cathedral",
+            "creature_profile": "BALANCED",
             "intensity_bias": 0.0,
             "blackout": False,
         }
@@ -122,6 +132,10 @@ class PerformanceState:
         clean = validate_control_patch(patch)
         with self.lock:
             self.controls.update(clean)
+            if "creature_profile" in clean:
+                # /api/live is the latency-sensitive Godot feed, so mirror this
+                # operator-only creative choice into that payload atomically.
+                self.live["creature_profile"] = clean["creature_profile"]
             return dict(self.controls)
 
 
