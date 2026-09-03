@@ -44,33 +44,91 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify hero scene assets
+      - name: Verify living hero assets
         run: |
           set -euo pipefail
           test -f apps/visual-engine/project.godot
           test -f apps/visual-engine/scenes/main.tscn
           test -f apps/visual-engine/scripts/show_player.gd
           test -f apps/visual-engine/scripts/logo_hero.gd
+          test -f apps/visual-engine/scripts/living_face.gd
           test -f apps/visual-engine/scripts/audio_bus.gd
           test -f apps/control-panel/index.html
           test -f ai/comfyui/workflows/flux_schnell_hero_stub.json
           test -f apps/visual-engine/shaders/logo_reactive.gdshader
           test -f apps/visual-engine/shaders/cosmic_portal.gdshader
           test -f apps/visual-engine/shaders/post_fx.gdshader
+          test -f apps/visual-engine/shaders/shock_ring.gdshader
+          test -f apps/visual-engine/assets/fx/soft_orb.svg
           test -f apps/visual-engine/assets/brand/valleytainment_logo.png
           test -f apps/visual-engine/assets/fixtures/demo_runtime.json
           python3 - <<'PY'
           from pathlib import Path
-          logo = Path("apps/visual-engine/assets/brand/valleytainment_logo.png")
-          assert logo.stat().st_size > 10_000, "logo missing or too small"
-          runtime = Path("apps/visual-engine/assets/fixtures/demo_runtime.json")
           import json
+
+          root = Path("apps/visual-engine")
+          logo = root / "assets/brand/valleytainment_logo.png"
+          assert logo.stat().st_size > 10_000, "logo missing or too small"
+
+          runtime = root / "assets/fixtures/demo_runtime.json"
           data = json.loads(runtime.read_text())
           for key in ("show_id", "bpm", "duration_s", "sections", "frames", "cues", "story"):
               assert key in data, f"missing runtime key: {key}"
           assert len(data["frames"]) >= 8
           assert len(data["sections"]) >= 2
+
+          scene = (root / "scenes/main.tscn").read_text()
+          for marker in ("LivingFace", "LifeAura", "BreathMist", "DroolMist", "BackBufferCopy"):
+              assert marker in scene, f"living hero missing scene marker: {marker}"
+
           panel = Path("apps/control-panel/index.html").read_text()
           assert "VALLEYTAINMENT" in panel
-          print("godot-assets ok", logo.stat().st_size, "bytes logo,", len(data["frames"]), "frames")
+          print("living hero assets ok", logo.stat().st_size, "bytes logo,", len(data["frames"]), "frames")
           PY
+
+  godot-headless:
+    name: Godot 4.6.3 real headless boot
+    runs-on: ubuntu-latest
+    env:
+      GODOT_VERSION: "4.6.3"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot 4.6.3
+        run: |
+          set -euo pipefail
+          url="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl --fail --location --retry 3 --output godot.zip "$url"
+          unzip -q godot.zip
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
+          chmod +x godot
+          ./godot --version
+
+      - name: Import project and compile resources
+        run: |
+          set -euo pipefail
+          ./godot \
+            --headless \
+            --rendering-method gl_compatibility \
+            --path apps/visual-engine \
+            --editor \
+            --quit-after 300 \
+            2>&1 | tee godot-import.log
+          if grep -E "SCRIPT ERROR|Parse Error|Shader compilation failed|Failed loading resource" godot-import.log; then
+            echo "Godot import/compile errors detected"
+            exit 1
+          fi
+
+      - name: Boot living monster runtime
+        run: |
+          set -euo pipefail
+          ./godot \
+            --headless \
+            --rendering-method gl_compatibility \
+            --path apps/visual-engine \
+            --quit-after 180 \
+            2>&1 | tee godot-runtime.log
+          if grep -E "SCRIPT ERROR|Parse Error|Invalid call|Invalid get index|Failed loading resource" godot-runtime.log; then
+            echo "Godot runtime errors detected"
+            exit 1
+          fi
