@@ -1,9 +1,10 @@
 extends Node
-## Loads a compiled show pack (runtime.json) and drives the Valleytainment logo hero.
-## Press L to toggle live API mode (vbrain live @ :8765).
+## Loads a compiled show pack (runtime.json) and drives the Valleytainment living monster hero.
+## F1 toggles the operator HUD; F11 toggles fullscreen; L/H switch live/hybrid modes.
 
 @onready var section_label: Label = $HUD/SectionLabel
 @onready var info_label: Label = $HUD/Info
+@onready var hud: CanvasLayer = $HUD
 @onready var audio_bus: Node = $AudioBus
 @onready var hero: Node2D = $Hero
 @onready var post_fx: ColorRect = $PostLayer/PostFX
@@ -44,15 +45,17 @@ func _resolve_runtime_path() -> String:
 func _load_runtime(path: String) -> void:
 	if path == "":
 		info_label.text = "VALLEYTAINMENT VISUAL BRAIN\nNo runtime.json — run: vbrain analyze track.wav"
-		_drive_features({
-			"intensity": 0.2,
-			"kick_energy": 0.1,
-			"bass_energy": 0.08,
-			"snare_energy": 0.0,
-			"hat_energy": 0.05,
-			"drop_probability": 0.0,
-			"spectral_brightness": 0.3,
-		})
+		_drive_features(
+			{
+				"intensity": 0.2,
+				"kick_energy": 0.1,
+				"bass_energy": 0.08,
+				"snare_energy": 0.0,
+				"hat_energy": 0.05,
+				"drop_probability": 0.0,
+				"spectral_brightness": 0.3,
+			}
+		)
 		return
 
 	var f := FileAccess.open(path, FileAccess.READ)
@@ -77,7 +80,7 @@ func _refresh_hud_title() -> void:
 	var mode := "LIVE API" if live_mode else "PREPARED"
 	if hybrid_mode:
 		mode = "HYBRID"
-	info_label.text = "%s\n%s · BPM %.1f · seed %s · hero logo\nSpace · L live · H hybrid · R restart · [ ] seek" % [
+	info_label.text = "%s\n%s · BPM %.1f · seed %s · LIVING MONSTER\nF1 HUD · F11 fullscreen · Space · L live · H hybrid · R restart · [ ] seek" % [
 		title,
 		mode,
 		bpm,
@@ -102,7 +105,7 @@ func _process(delta: float) -> void:
 				"spectral_brightness": float(live.get("hat", 0.0)),
 				"section": current_section,
 			}
-		# HYBRID: prepared section timeline + live band energies
+		# HYBRID: prepared section timeline + live band energies.
 		if hybrid_mode and not frames.is_empty():
 			show_time += delta
 			if duration > 0.0 and show_time > duration:
@@ -111,7 +114,9 @@ func _process(delta: float) -> void:
 			_update_section()
 			var prepared := _features_at(show_time)
 			payload["section"] = current_section
-			payload["intensity"] = maxf(float(payload.get("intensity", 0.0)), float(prepared.get("intensity", 0.0)))
+			payload["intensity"] = maxf(
+				float(payload.get("intensity", 0.0)), float(prepared.get("intensity", 0.0))
+			)
 			payload["drop_probability"] = maxf(
 				float(payload.get("drop_probability", 0.0)),
 				float(prepared.get("drop_probability", 0.0))
@@ -177,13 +182,17 @@ func _drive_features(feat: Dictionary) -> void:
 
 	var mat := post_fx.material as ShaderMaterial
 	if mat:
-		var intensity := float(feat.get("intensity", 0.2))
-		var snare := float(feat.get("snare_energy", 0.0))
-		var drop_p := float(feat.get("drop_probability", 0.0))
-		mat.set_shader_parameter("bloom", 0.35 + intensity * 0.7)
-		mat.set_shader_parameter("chromatic", clampf(intensity * 0.55 + drop_p * 0.25, 0.0, 1.0))
+		var intensity := clampf(float(feat.get("intensity", 0.2)), 0.0, 1.0)
+		var kick := clampf(float(feat.get("kick_energy", 0.0)), 0.0, 1.0)
+		var bass := clampf(float(feat.get("bass_energy", 0.0)), 0.0, 1.0)
+		var snare := clampf(float(feat.get("snare_energy", 0.0)), 0.0, 1.0)
+		var drop_p := clampf(float(feat.get("drop_probability", 0.0)), 0.0, 1.0)
+		mat.set_shader_parameter("bloom", 0.30 + intensity * 0.62)
+		mat.set_shader_parameter("chromatic", clampf(intensity * 0.30 + drop_p * 0.22, 0.0, 0.62))
 		mat.set_shader_parameter("flash", clampf(snare * snare, 0.0, 1.0))
-		mat.set_shader_parameter("vignette", 0.3 + (0.25 if current_section == "PRE_DROP" else 0.0))
+		mat.set_shader_parameter("vignette", 0.28 + (0.22 if current_section == "PRE_DROP" else 0.0))
+		mat.set_shader_parameter("pulse", clampf(kick * 0.72 + bass * 0.20, 0.0, 1.0))
+		mat.set_shader_parameter("drop", drop_p)
 
 
 func _toggle_live() -> void:
@@ -206,8 +215,20 @@ func _toggle_hybrid() -> void:
 	_refresh_hud_title()
 
 
+func _toggle_fullscreen() -> void:
+	var mode := DisplayServer.window_get_mode()
+	if mode == DisplayServer.WINDOW_MODE_FULLSCREEN:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	else:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+
+
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and event.keycode == KEY_L:
+	if event is InputEventKey and event.pressed and event.keycode == KEY_F1:
+		hud.visible = not hud.visible
+	elif event is InputEventKey and event.pressed and event.keycode == KEY_F11:
+		_toggle_fullscreen()
+	elif event is InputEventKey and event.pressed and event.keycode == KEY_L:
 		_toggle_live()
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_H:
 		_toggle_hybrid()

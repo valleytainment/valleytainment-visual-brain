@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3 uid="uid://vbrain_main"]
+[gd_scene load_steps=21 format=3 uid="uid://vbrain_main"]
 
 [ext_resource type="Script" path="res://scripts/show_player.gd" id="1_player"]
 [ext_resource type="Script" path="res://scripts/audio_bus.gd" id="2_audio"]
@@ -7,6 +7,9 @@
 [ext_resource type="Shader" path="res://shaders/logo_reactive.gdshader" id="5_logo_sh"]
 [ext_resource type="Shader" path="res://shaders/post_fx.gdshader" id="6_post"]
 [ext_resource type="Texture2D" path="res://assets/brand/valleytainment_logo.png" id="7_logo_tex"]
+[ext_resource type="Script" path="res://scripts/living_face.gd" id="8_face"]
+[ext_resource type="Texture2D" path="res://assets/fx/soft_orb.svg" id="9_orb"]
+[ext_resource type="Shader" path="res://shaders/shock_ring.gdshader" id="10_ring"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_portal"]
 shader = ExtResource("4_portal")
@@ -34,16 +37,28 @@ shader_parameter/blackout = 0.0
 shader_parameter/plasma_flow = 0.35
 shader_parameter/parallax = 0.0
 shader_parameter/shockwave = 0.0
+shader_parameter/life = 0.72
+shader_parameter/breath_phase = 0.5
+shader_parameter/heartbeat = 0.0
+shader_parameter/mouth_pulse = 0.5
+shader_parameter/wetness = 0.8
+shader_parameter/goo_motion = 0.75
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_ghost_a"]
 shader = ExtResource("5_logo_sh")
 shader_parameter/intensity = 0.2
 shader_parameter/plasma_flow = 0.5
+shader_parameter/life = 0.35
+shader_parameter/wetness = 0.45
+shader_parameter/goo_motion = 0.35
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_ghost_b"]
 shader = ExtResource("5_logo_sh")
 shader_parameter/intensity = 0.2
 shader_parameter/plasma_flow = 0.5
+shader_parameter/life = 0.35
+shader_parameter/wetness = 0.45
+shader_parameter/goo_motion = 0.35
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_glitter"]
 emission_shape = 1
@@ -69,12 +84,40 @@ scale_min = 1.0
 scale_max = 3.5
 color = Color(1, 0.55, 0.2, 0.9)
 
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_breath"]
+emission_shape = 1
+emission_sphere_radius = 72.0
+direction = Vector3(0, -1, 0)
+spread = 62.0
+initial_velocity_min = 12.0
+initial_velocity_max = 52.0
+gravity = Vector3(0, -8, 0)
+scale_min = 0.18
+scale_max = 0.82
+color = Color(0.58, 0.92, 1, 0.32)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_drool"]
+emission_shape = 1
+emission_sphere_radius = 54.0
+direction = Vector3(0, 1, 0)
+spread = 34.0
+initial_velocity_min = 24.0
+initial_velocity_max = 92.0
+gravity = Vector3(0, 105, 0)
+scale_min = 0.10
+scale_max = 0.42
+color = Color(0.34, 0.88, 1, 0.62)
+
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_post"]
 shader = ExtResource("6_post")
 shader_parameter/bloom = 0.45
 shader_parameter/chromatic = 0.0
 shader_parameter/flash = 0.0
 shader_parameter/vignette = 0.4
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ring"]
+shader = ExtResource("10_ring")
+shader_parameter/strength = 1.0
 
 [node name="Main" type="Node"]
 script = ExtResource("1_player")
@@ -100,6 +143,13 @@ mouse_filter = 2
 [node name="LogoLayer" type="CanvasLayer" parent="Hero"]
 layer = 1
 
+[node name="LifeAura" type="Sprite2D" parent="Hero/LogoLayer"]
+z_index = -3
+position = Vector2(960, 520)
+scale = Vector2(10.2, 6.9)
+texture = ExtResource("9_orb")
+modulate = Color(0.28, 0.72, 1, 0.08)
+
 [node name="LogoGhostA" type="Sprite2D" parent="Hero/LogoLayer"]
 z_index = -2
 material = SubResource("ShaderMaterial_ghost_a")
@@ -123,13 +173,39 @@ position = Vector2(960, 520)
 scale = Vector2(0.72, 0.72)
 texture = ExtResource("7_logo_tex")
 
-[node name="Glitter" type="GPUParticles2D" parent="Hero/LogoLayer"]
+[node name="BreathMist" type="GPUParticles2D" parent="Hero/LogoLayer"]
 z_index = 2
+position = Vector2(960, 575)
+amount = 28
+lifetime = 1.7
+preprocess = 0.4
+texture = ExtResource("9_orb")
+process_material = SubResource("ParticleProcessMaterial_breath")
+visibility_rect = Rect2(-360, -280, 720, 560)
+
+[node name="DroolMist" type="GPUParticles2D" parent="Hero/LogoLayer"]
+z_index = 3
+position = Vector2(960, 615)
+amount = 18
+lifetime = 1.35
+preprocess = 0.3
+texture = ExtResource("9_orb")
+process_material = SubResource("ParticleProcessMaterial_drool")
+visibility_rect = Rect2(-320, -120, 640, 520)
+
+[node name="LivingFace" type="Node2D" parent="Hero/LogoLayer"]
+z_index = 4
+position = Vector2(960, 348)
+script = ExtResource("8_face")
+
+[node name="Glitter" type="GPUParticles2D" parent="Hero/LogoLayer"]
+z_index = 5
 position = Vector2(960, 560)
-amount = 24
+amount = 72
 process_material = SubResource("ParticleProcessMaterial_glitter")
 lifetime = 1.2
 preprocess = 0.2
+texture = ExtResource("9_orb")
 visibility_rect = Rect2(-400, -400, 800, 800)
 
 [node name="FXLayer" type="CanvasLayer" parent="Hero"]
@@ -140,11 +216,12 @@ visible = false
 position = Vector2(960, 540)
 
 [node name="Ring" type="ColorRect" parent="Hero/FXLayer/ShockRing"]
-offset_left = -40.0
-offset_top = -40.0
-offset_right = 40.0
-offset_bottom = 40.0
-color = Color(1, 0.82, 0.3, 0.35)
+material = SubResource("ShaderMaterial_ring")
+offset_left = -240.0
+offset_top = -240.0
+offset_right = 240.0
+offset_bottom = 240.0
+mouse_filter = 2
 
 [node name="SpitBurst" type="GPUParticles2D" parent="Hero/FXLayer"]
 position = Vector2(960, 620)
@@ -153,11 +230,15 @@ amount = 48
 one_shot = true
 explosiveness = 0.92
 lifetime = 0.7
+texture = ExtResource("9_orb")
 process_material = SubResource("ParticleProcessMaterial_spit")
 visibility_rect = Rect2(-500, -200, 1000, 800)
 
 [node name="PostLayer" type="CanvasLayer" parent="."]
 layer = 8
+
+[node name="BackBufferCopy" type="BackBufferCopy" parent="PostLayer"]
+copy_mode = 2
 
 [node name="PostFX" type="ColorRect" parent="PostLayer"]
 material = SubResource("ShaderMaterial_post")
@@ -169,17 +250,17 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="HUD" type="CanvasLayer" parent="."]
+visible = false
 layer = 10
 
 [node name="Info" type="Label" parent="HUD"]
 offset_left = 24.0
 offset_top = 20.0
-offset_right = 980.0
-offset_bottom = 140.0
+offset_right = 1100.0
+offset_bottom = 150.0
 theme_override_colors/font_color = Color(0.9, 0.92, 0.95, 0.9)
 theme_override_font_sizes/font_size = 18
-text = "VALLEYTAINMENT VISUAL BRAIN
-Hero: monster logo · Space play/pause · R restart · [ ] seek"
+text = "VALLEYTAINMENT VISUAL BRAIN\nLiving monster hero · F1 HUD · Space play/pause · L live · H hybrid"
 
 [node name="SectionLabel" type="Label" parent="HUD"]
 anchors_preset = 2

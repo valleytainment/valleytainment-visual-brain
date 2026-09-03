@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
 from collections.abc import Callable
@@ -10,6 +11,75 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+
+MAX_BODY_BYTES = 32 * 1024
+ALLOWED_MODES = {"PREPARED", "LIVE", "HYBRID"}
+ALLOWED_CUES = {
+    "tick",
+    "trigger_drop",
+    "trigger_pre_drop",
+    "trigger_silence",
+    "trigger_shockwave",
+}
+STYLE_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,79}$")
+RESOLUTION_RE = re.compile(r"^(\d{2,5})x(\d{2,5})$")
+CONTROL_KEYS = {
+    "playing",
+    "mode",
+    "resolution",
+    "seed",
+    "style",
+    "intensity_bias",
+    "blackout",
+}
+
+
+def validate_control_patch(patch: dict[str, Any]) -> dict[str, Any]:
+    """Validate and normalize performer controls before mutating live state."""
+    if not isinstance(patch, dict):
+        raise ValueError("controls payload must be an object")
+    unknown = sorted(set(patch) - CONTROL_KEYS)
+    if unknown:
+        raise ValueError(f"unsupported control fields: {', '.join(unknown)}")
+
+    clean: dict[str, Any] = {}
+    for key, value in patch.items():
+        if key in {"playing", "blackout"}:
+            if not isinstance(value, bool):
+                raise ValueError(f"{key} must be boolean")
+            clean[key] = value
+        elif key == "mode":
+            if not isinstance(value, str) or value.upper() not in ALLOWED_MODES:
+                raise ValueError(f"mode must be one of {sorted(ALLOWED_MODES)}")
+            clean[key] = value.upper()
+        elif key == "resolution":
+            if not isinstance(value, str):
+                raise ValueError("resolution must be WIDTHxHEIGHT")
+            match = RESOLUTION_RE.fullmatch(value)
+            if not match:
+                raise ValueError("resolution must be WIDTHxHEIGHT")
+            width, height = (int(match.group(1)), int(match.group(2)))
+            if not 320 <= width <= 8192 or not 240 <= height <= 8192:
+                raise ValueError("resolution is outside the supported stage range")
+            clean[key] = f"{width}x{height}"
+        elif key == "seed":
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ValueError("seed must be an integer")
+            if not 0 <= value <= 2_147_483_647:
+                raise ValueError("seed must be between 0 and 2147483647")
+            clean[key] = value
+        elif key == "style":
+            if not isinstance(value, str) or not STYLE_RE.fullmatch(value):
+                raise ValueError("style must be a safe preset identifier")
+            clean[key] = value
+        elif key == "intensity_bias":
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError("intensity_bias must be numeric")
+            numeric = float(value)
+            if not -1.0 <= numeric <= 1.0:
+                raise ValueError("intensity_bias must be between -1 and 1")
+            clean[key] = numeric
+    return clean
 
 
 class PerformanceState:
@@ -49,8 +119,9 @@ class PerformanceState:
             return {"live": dict(self.live), "controls": dict(self.controls)}
 
     def patch_controls(self, patch: dict[str, Any]) -> dict[str, Any]:
+        clean = validate_control_patch(patch)
         with self.lock:
-            self.controls.update(patch)
+            self.controls.update(clean)
             return dict(self.controls)
 
 
@@ -64,10 +135,10 @@ def make_handler(
             return
 
         def _json(self, code: int, payload: dict[str, Any]) -> None:
-            body = json.dumps(payload).encode("utf-8")
+            body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
             self.send_response(code)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -76,16 +147,10 @@ def make_handler(
             data = body.encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
-
-        def do_OPTIONS(self) -> None:
-            self.send_response(204)
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
-            self.end_headers()
 
         def do_GET(self) -> None:
             path = urlparse(self.path).path
@@ -106,24 +171,48 @@ def make_handler(
 
         def do_POST(self) -> None:
             path = urlparse(self.path).path
-            length = int(self.headers.get("Content-Length", "0"))
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                self._json(400, {"error": "invalid content length"})
+                return
+            if length < 0 or length > MAX_BODY_BYTES:
+                self._json(413, {"error": "request body too large"})
+                return
+
             raw = self.rfile.read(length) if length else b"{}"
             try:
                 payload = json.loads(raw.decode("utf-8") or "{}")
-            except json.JSONDecodeError:
+            except (UnicodeDecodeError, json.JSONDecodeError):
                 self._json(400, {"error": "invalid json"})
                 return
+            if not isinstance(payload, dict):
+                self._json(400, {"error": "json body must be an object"})
+                return
+
             if path == "/api/controls":
-                controls = state.patch_controls(payload)
+                try:
+                    controls = state.patch_controls(payload)
+                except ValueError as exc:
+                    self._json(400, {"error": str(exc)})
+                    return
                 if on_control:
                     on_control(controls)
                 self._json(200, {"controls": controls})
                 return
+
             if path == "/api/cue":
-                # Immediate cue injection into live state
-                state.update_live({"action": str(payload.get("action", "tick")), **payload})
-                self._json(200, {"ok": True})
+                if set(payload) - {"action"}:
+                    self._json(400, {"error": "cue accepts only the action field"})
+                    return
+                action = payload.get("action", "tick")
+                if not isinstance(action, str) or action not in ALLOWED_CUES:
+                    self._json(400, {"error": "unsupported cue action"})
+                    return
+                state.update_live({"action": action})
+                self._json(200, {"ok": True, "action": action})
                 return
+
             self._json(404, {"error": "not found"})
 
     return Handler
@@ -147,14 +236,18 @@ def run_server(
 ) -> ThreadingHTTPServer:
     handler = make_handler(state, load_panel_html())
     server = ThreadingHTTPServer((host, port), handler)
+    server.daemon_threads = True
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     return server
 
 
 def write_live_sidecar(path: Path, live: dict[str, Any]) -> None:
+    """Atomically publish a live-state sidecar so readers never see partial JSON."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(live), encoding="utf-8")
+    temp = path.with_suffix(path.suffix + ".tmp")
+    temp.write_text(json.dumps(live, separators=(",", ":")), encoding="utf-8")
+    temp.replace(path)
 
 
 def sleep_chunk(seconds: float) -> None:
