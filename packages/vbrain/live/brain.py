@@ -120,9 +120,7 @@ class LiveBrain:
         intensity = float(np.clip(self._smoothed_intensity, 0.0, 1.0))
 
         mean_i = (
-            float(np.mean(self._intensity_hist))
-            if self._intensity_hist
-            else max(intensity, 0.01)
+            float(np.mean(self._intensity_hist)) if self._intensity_hist else max(intensity, 0.01)
         )
         self._intensity_hist.append(intensity)
         rising = intensity > mean_i + 0.055
