@@ -51,12 +51,14 @@ jobs:
           test -f apps/visual-engine/scenes/main.tscn
           test -f apps/visual-engine/scripts/show_player.gd
           test -f apps/visual-engine/scripts/logo_hero.gd
+          test -f apps/visual-engine/scripts/audio_bus.gd
+          test -f apps/control-panel/index.html
+          test -f ai/comfyui/workflows/flux_schnell_hero_stub.json
           test -f apps/visual-engine/shaders/logo_reactive.gdshader
           test -f apps/visual-engine/shaders/cosmic_portal.gdshader
           test -f apps/visual-engine/shaders/post_fx.gdshader
           test -f apps/visual-engine/assets/brand/valleytainment_logo.png
           test -f apps/visual-engine/assets/fixtures/demo_runtime.json
-          # Basic texture import stub present or creatable by Godot later
           python3 - <<'PY'
           from pathlib import Path
           logo = Path("apps/visual-engine/assets/brand/valleytainment_logo.png")
@@ -68,5 +70,7 @@ jobs:
               assert key in data, f"missing runtime key: {key}"
           assert len(data["frames"]) >= 8
           assert len(data["sections"]) >= 2
+          panel = Path("apps/control-panel/index.html").read_text()
+          assert "VALLEYTAINMENT" in panel
           print("godot-assets ok", logo.stat().st_size, "bytes logo,", len(data["frames"]), "frames")
           PY

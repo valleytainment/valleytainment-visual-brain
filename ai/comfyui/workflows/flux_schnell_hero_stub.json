@@ -1,0 +1,48 @@
+{
+  "name": "flux_schnell_hero_stub",
+  "description": "Placeholder ComfyUI API-format workflow. Replace node IDs with your local FLUX.1-schnell graph export.",
+  "prompt": {
+    "3": {
+      "class_type": "KSampler",
+      "inputs": {
+        "seed": 926183,
+        "steps": 4,
+        "cfg": 1.0,
+        "sampler_name": "euler",
+        "scheduler": "simple",
+        "denoise": 1.0,
+        "model": ["4", 0],
+        "positive": ["6", 0],
+        "negative": ["7", 0],
+        "latent_image": ["5", 0]
+      }
+    },
+    "4": {
+      "class_type": "CheckpointLoaderSimple",
+      "inputs": { "ckpt_name": "flux1-schnell.safetensors" }
+    },
+    "5": {
+      "class_type": "EmptyLatentImage",
+      "inputs": { "width": 1024, "height": 1024, "batch_size": 1 }
+    },
+    "6": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "text": "valleytainment cyber cathedral monster logo world, festival LED, gold teeth, cosmic slime",
+        "clip": ["4", 1]
+      }
+    },
+    "7": {
+      "class_type": "CLIPTextEncode",
+      "inputs": { "text": "blurry, low quality, watermark", "clip": ["4", 1] }
+    },
+    "8": {
+      "class_type": "VAEDecode",
+      "inputs": { "samples": ["3", 0], "vae": ["4", 2] }
+    },
+    "9": {
+      "class_type": "SaveImage",
+      "inputs": { "filename_prefix": "vbrain/hero", "images": ["8", 0] }
+    }
+  }
+}

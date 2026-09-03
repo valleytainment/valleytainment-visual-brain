@@ -6,104 +6,62 @@ AI **visual performance instrument** for EDM — not an AI video generator.
 MUSIC → UNDERSTANDS → FEELS → DIRECTS → PERFORMS (Godot)
 ```
 
-Software/API cost target: **$0/month**. Compute hardware is the only real cost.
-
-## Status
-
-| Layer | Status |
-| ----- | ------ |
-| Music analyzer (BPM, bands, sections, drop heuristic) | **Working** |
-| Intensity engine + cue map | **Working** |
-| Visual director (rule-based + optional Ollama/Qwen) | **Working** |
-| Show pack + `runtime.json` contract | **Working** |
-| Godot 4 **Valleytainment logo hero** (kick/bass/snare/hat/drop) | **Working** |
-| CI (Ruff + pytest on 3.11/3.13 + Godot asset smoke) | **Working** |
-| Demucs stems | Optional (`pip install .[stems]`) |
-| ComfyUI / FLUX / Wan / Hunyuan factory | Phase 3 |
-
-## Quick start
+## Quick start (do-it-all)
 
 ```bash
 cd valleytainment-visual-brain
-# Prefer Python 3.11–3.13 (3.14 lacks some audio wheels on macOS)
-python3.12 -m venv .venv
-source .venv/bin/activate
+python3.12 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
-# Analyze a track → shows/<id>/
-vbrain analyze /path/to/track.wav --seed 926183
+# System check
+vbrain status
 
-# Or rebuild the compact demo fixture used by Godot + CI:
-python scripts/make_demo_track.py
-python scripts/build_demo_fixture.py
+# Prepared show from a track
+vbrain analyze /path/to/track.wav
+
+# Live brain + control panel (demo audio if no track)
+vbrain live --source file --seconds 0
+# → http://127.0.0.1:8765/
+
+# Godot 4.3+: open apps/visual-engine, Play
+# Press L inside Godot to follow the live API
 ```
 
-Open `apps/visual-engine` in **Godot 4.3+** and press Play.  
-It loads the canonical fixture at `assets/fixtures/demo_runtime.json` (not the large generated show packs under `shows/`).
+## Commands
 
-Controls: `Space` play/pause · `R` restart · `[` `]` seek ±4s
+| Command | Purpose |
+| ------- | ------- |
+| `vbrain analyze TRACK` | Prepared show pack |
+| `vbrain live` | Live FFT brain + performer panel |
+| `vbrain serve` | Panel only |
+| `vbrain status` | GPU tier + Comfy + outputs |
+| `vbrain factory status` | AI factory routing |
+| `vbrain factory init-manifest` | Register logo hero asset |
+| `vbrain factory queue WORKFLOW` | ComfyUI submit (dry-run safe) |
+| `vbrain list-styles` | Visual style presets |
 
-### Optional local LLM director
-
-```bash
-ollama pull qwen3:8b
-vbrain analyze track.wav --ollama --ollama-model qwen3:8b
-```
-
-## Hero scene map
+## Hero scene
 
 ```text
 VALLEYTAINMENT LOGO
-      │
-      ├── kick → ~1–2% pulse
-      ├── bass → dimensional breathing / parallax
-      ├── snare → gold/teeth flash
-      ├── hats → glitter emission
-      ├── synth/brightness → rainbow plasma flow
-      ├── buildup → portal charge
-      ├── pre-drop → vacuum/blackout
-      └── drop → radial cosmic eruption
+  kick pulse · bass breathe · snare gold flash · hat glitter
+  plasma flow · portal charge · blackout · drop shockwave
 ```
 
-## Architecture
+Godot keys: `Space` play/pause · `L` live API · `R` restart · `[` `]` seek
 
-1. **Prepared show** — analyze → direct → show pack → Godot performs  
-2. **Live / unknown set** — FFT bands + prebuilt worlds (Godot `audio_bus.gd`)  
-3. **AI factory** (Phase 3) — ComfyUI generates worlds offline; performance PC never needs the GPU models
+## Phases
 
-## Repo map
+| Phase | Status |
+| ----- | ------ |
+| 1 Music brain + CI + fixtures | **Done** |
+| 2 Logo hero visual engine | **Done** |
+| 3 AI factory (Comfy client, GPU router, manifest) | **Done** (models optional/local) |
+| 4 Live brain (FFT, BPM, sections, cues) | **Done** |
+| 5 Performance panel / LED / OBS presets | **Done** |
 
-```text
-packages/vbrain/     Python brain (analyzer, director, showpack, CLI)
-apps/visual-engine/  Godot 4 performance instrument (logo hero)
-tests/fixtures/      Compact deterministic demo_runtime.json
-shows/               Compiled show packs (gitignored)
-configs/             Defaults / GPU tiers
-ai/                  Future ComfyUI workflow hooks
-.github/workflows/   CI
-```
-
-## Show pack files
-
-```text
-shows/SHOW_ID/
-  analysis.json
-  visual_story.json
-  show_seed.json
-  cue_map.json
-  show_pack.json
-  runtime.json      ← copy to user://runtime.json for custom shows
-```
-
-Godot’s checked-in fixture is intentionally small and contract-validated:
-
-```text
-apps/visual-engine/assets/fixtures/demo_runtime.json
-tests/fixtures/demo_runtime.json
-```
+Heavy FLUX/Wan/Hunyuan weights are **not** downloaded by this repo — wire ComfyUI when you have a GPU.
 
 ## License
 
-MIT — Valleytainment Visual Brain application code.  
-Third-party models (FLUX, Wan, Demucs, etc.) keep their own licenses; check before commercial shipping of generated assets.  
-Brand logo artwork © Valleytainment.
+MIT — application code. Brand logo © Valleytainment. Third-party model licenses apply separately.

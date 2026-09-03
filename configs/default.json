@@ -10,6 +10,8 @@
     "seed": 926183,
     "artist": "Valleytainment",
     "ollama_model": "qwen3:8b",
+    "hero_scene": "valleytainment_logo",
+    "performance_api": "http://127.0.0.1:8765",
     "analyzer": {
       "sr": 22050,
       "hop_length": 512,
@@ -17,13 +19,15 @@
     }
   },
   "gpu_tiers": {
-    "high": ["wan2.2", "hunyuanvideo-1.5"],
-    "low": ["framepack", "ltx"],
+    "high": ["wan2.2", "hunyuanvideo-1.5", "flux.1-schnell", "qwen-image"],
+    "low": ["framepack", "ltx", "flux.1-schnell"],
     "none": ["prebuilt-assets-only"]
   },
+  "outputs": ["fhd", "qhd", "uhd", "square_led", "portrait_led", "obs_canvas"],
   "comfyui": {
     "enabled": false,
     "base_url": "http://127.0.0.1:8188",
+    "workflows_dir": "ai/comfyui/workflows",
     "note": "AI factory is optional — performance PC runs Godot from show packs"
   }
 }
