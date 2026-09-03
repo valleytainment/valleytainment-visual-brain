@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import numpy as np
 
-
 SILENCE_EPS = 1e-9
 
 
