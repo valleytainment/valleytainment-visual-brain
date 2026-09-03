@@ -1,7 +1,6 @@
 """Regression tests for level-aware live visual analysis."""
 
 import numpy as np
-
 from vbrain.live import LiveBrain, live_bands
 
 
