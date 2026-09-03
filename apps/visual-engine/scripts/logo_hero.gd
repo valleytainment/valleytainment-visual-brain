@@ -26,6 +26,15 @@ var section_blend: float = 1.0
 var prev_section: String = "INTRO"
 var _life_time: float = 0.0
 var _last_features: Dictionary = {}
+var _creature_profile: String = "BALANCED"
+
+const PROFILE_TUNING := {
+	"BALANCED": {"wet": 1.0, "goo": 1.0, "life": 1.0, "motion": 1.0, "ghost": 1.0, "mist": 1.0, "drool": 1.0, "shock": 1.0},
+	"WET": {"wet": 1.35, "goo": 1.28, "life": 0.96, "motion": 0.82, "ghost": 0.82, "mist": 1.12, "drool": 1.48, "shock": 0.90},
+	"CREEPY": {"wet": 1.10, "goo": 0.88, "life": 0.88, "motion": 0.58, "ghost": 1.30, "mist": 1.38, "drool": 1.10, "shock": 0.78},
+	"AGGRESSIVE": {"wet": 0.96, "goo": 1.12, "life": 1.12, "motion": 1.38, "ghost": 1.22, "mist": 0.86, "drool": 0.98, "shock": 1.38},
+	"UNHINGED": {"wet": 1.22, "goo": 1.52, "life": 1.28, "motion": 1.72, "ghost": 1.52, "mist": 1.20, "drool": 1.34, "shock": 1.55},
+}
 
 
 func _ready() -> void:
@@ -51,8 +60,20 @@ func _try_load_world_plate() -> void:
 		mat.set_shader_parameter("plate_mix", 0.5)
 
 
+func _tuning() -> Dictionary:
+	return PROFILE_TUNING.get(_creature_profile, PROFILE_TUNING["BALANCED"])
+
+
 func apply_audio(feat: Dictionary, section_label: String) -> void:
 	_last_features = feat.duplicate()
+	var requested_profile := str(feat.get("creature_profile", _creature_profile)).to_upper()
+	if PROFILE_TUNING.has(requested_profile):
+		_creature_profile = requested_profile
+	var tuning := _tuning()
+	var motion_mul := float(tuning["motion"])
+	var ghost_mul := float(tuning["ghost"])
+	var shock_mul := float(tuning["shock"])
+
 	if section_label != section and section_label != "—":
 		prev_section = section
 		section = section_label
@@ -79,7 +100,6 @@ func apply_audio(feat: Dictionary, section_label: String) -> void:
 	var charge := 0.0
 	if is_build:
 		charge = clampf(intensity * 1.15, 0.0, 1.0)
-
 	var drop_amt := 1.0 if is_drop else clampf(drop_p * intensity, 0.0, 1.0)
 
 	if is_drop and kick > 0.72 and last_kick < 0.55:
@@ -94,96 +114,41 @@ func apply_audio(feat: Dictionary, section_label: String) -> void:
 		snare_hit = minf(1.0, snare + 0.45)
 	last_snare = snare
 
-	var breath_phase := 0.5 + 0.5 * sin(_life_time * 1.18)
-	var heartbeat := _heartbeat_pulse(_life_time)
-	var mouth_pulse := 0.5 + 0.5 * sin(_life_time * 0.84 + bass * 0.7)
-	var life_amount := clampf(0.62 + intensity * 0.32 + drop_amt * 0.14, 0.48, 1.18)
+	var breath_speed := lerpf(0.92, 1.45, clampf((motion_mul - 0.58) / 1.14, 0.0, 1.0))
+	var breath_phase := 0.5 + 0.5 * sin(_life_time * 1.18 * breath_speed)
+	var heartbeat := _heartbeat_pulse(_life_time * (0.92 + motion_mul * 0.10))
+	var mouth_pulse := 0.5 + 0.5 * sin(_life_time * 0.84 * motion_mul + bass * 0.7)
+	var life_amount := clampf((0.62 + intensity * 0.32 + drop_amt * 0.14) * float(tuning["life"]), 0.42, 1.32)
 	if section == "SILENCE":
-		life_amount = 0.52
-	var wetness := clampf(0.72 + brightness * 0.26 + bass * 0.14, 0.55, 1.15)
-	var goo_motion := clampf(0.65 + bass * 0.28 + intensity * 0.14, 0.55, 1.15)
+		life_amount = 0.52 * float(tuning["life"])
+	var wetness := clampf((0.72 + brightness * 0.26 + bass * 0.14) * float(tuning["wet"]), 0.48, 1.40)
+	var goo_motion := clampf((0.65 + bass * 0.28 + intensity * 0.14) * float(tuning["goo"]), 0.42, 1.55)
 
-	# Persistent asymmetric breathing plus beat response. The source art stays readable.
-	var scale_x := 1.0 + kick * 0.018 + bass * 0.020 + (breath_phase - 0.5) * 0.010 + heartbeat * 0.005
-	var scale_y := 1.0 + kick * 0.014 + bass * 0.026 - (breath_phase - 0.5) * 0.007 + heartbeat * 0.008
+	var scale_x := 1.0 + (kick * 0.018 + bass * 0.020 + (breath_phase - 0.5) * 0.010 + heartbeat * 0.005) * motion_mul
+	var scale_y := 1.0 + (kick * 0.014 + bass * 0.026 - (breath_phase - 0.5) * 0.007 + heartbeat * 0.008) * motion_mul
 	if is_drop:
-		scale_x += kick * 0.010
-		scale_y += kick * 0.012
+		scale_x += kick * 0.010 * motion_mul
+		scale_y += kick * 0.012 * motion_mul
 	logo.scale = Vector2(base_logo_scale.x * scale_x, base_logo_scale.y * scale_y)
-	logo.rotation = sin(_life_time * 0.43) * 0.004 + sin(_life_time * 1.5) * bass * 0.010
+	logo.rotation = (sin(_life_time * 0.43) * 0.004 + sin(_life_time * 1.5) * bass * 0.010) * motion_mul
 	logo.modulate.a = lerpf(0.38, 1.0, section_blend)
 
-	# Depth parallax ghosts make the flat logo occupy real stage depth.
 	if ghost_a:
-		ghost_a.scale = Vector2(
-			base_logo_scale.x * (scale_x * 1.035 + bass * 0.018),
-			base_logo_scale.y * (scale_y * 1.035 + bass * 0.012)
-		)
-		ghost_a.position = logo.position + Vector2(-16.0 - bass * 10.0, 8.0 + kick * 4.0)
-		ghost_a.modulate = Color(1.0, 0.55, 0.85, 0.14 + hat * 0.10)
+		ghost_a.scale = Vector2(base_logo_scale.x * (scale_x * 1.035 + bass * 0.018 * ghost_mul), base_logo_scale.y * (scale_y * 1.035 + bass * 0.012 * ghost_mul))
+		ghost_a.position = logo.position + Vector2(-16.0 - bass * 10.0 * ghost_mul, 8.0 + kick * 4.0 * motion_mul)
+		ghost_a.modulate = Color(1.0, 0.55, 0.85, clampf((0.14 + hat * 0.10) * ghost_mul, 0.06, 0.34))
 		ghost_a.rotation = logo.rotation * 1.3
 	if ghost_b:
-		ghost_b.scale = Vector2(
-			base_logo_scale.x * (scale_x * 0.965 - kick * 0.008),
-			base_logo_scale.y * (scale_y * 0.965 - kick * 0.006)
-		)
-		ghost_b.position = logo.position + Vector2(20.0 + bass * 8.0, -9.0 - bass * 6.0)
-		ghost_b.modulate = Color(0.4, 0.95, 1.0, 0.11 + brightness * 0.09)
+		ghost_b.scale = Vector2(base_logo_scale.x * (scale_x * 0.965 - kick * 0.008 * ghost_mul), base_logo_scale.y * (scale_y * 0.965 - kick * 0.006 * ghost_mul))
+		ghost_b.position = logo.position + Vector2(20.0 + bass * 8.0 * ghost_mul, -9.0 - bass * 6.0 * ghost_mul)
+		ghost_b.modulate = Color(0.4, 0.95, 1.0, clampf((0.11 + brightness * 0.09) * ghost_mul, 0.05, 0.30))
 		ghost_b.rotation = -logo.rotation * 0.8
 
-	_apply_logo_mat(
-		logo,
-		intensity,
-		kick,
-		bass,
-		snare_hit,
-		hat,
-		drop_amt,
-		blackout,
-		brightness,
-		life_amount,
-		breath_phase,
-		heartbeat,
-		mouth_pulse,
-		wetness,
-		goo_motion
-	)
+	_apply_logo_mat(logo, intensity, kick, bass, snare_hit, hat, drop_amt, blackout, brightness, life_amount, breath_phase, heartbeat, mouth_pulse, wetness, goo_motion)
 	if ghost_a:
-		_apply_logo_mat(
-			ghost_a,
-			intensity * 0.65,
-			kick,
-			bass,
-			snare_hit * 0.45,
-			hat,
-			drop_amt * 0.45,
-			blackout,
-			brightness,
-			life_amount * 0.45,
-			breath_phase,
-			heartbeat * 0.4,
-			mouth_pulse,
-			wetness * 0.6,
-			goo_motion * 0.5
-		)
+		_apply_logo_mat(ghost_a, intensity * 0.65, kick, bass, snare_hit * 0.45, hat, drop_amt * 0.45, blackout, brightness, life_amount * 0.45, breath_phase, heartbeat * 0.4, mouth_pulse, wetness * 0.6, goo_motion * 0.5)
 	if ghost_b:
-		_apply_logo_mat(
-			ghost_b,
-			intensity * 0.65,
-			kick,
-			bass,
-			snare_hit * 0.45,
-			hat,
-			drop_amt * 0.45,
-			blackout,
-			brightness,
-			life_amount * 0.45,
-			breath_phase,
-			heartbeat * 0.4,
-			mouth_pulse,
-			wetness * 0.6,
-			goo_motion * 0.5
-		)
+		_apply_logo_mat(ghost_b, intensity * 0.65, kick, bass, snare_hit * 0.45, hat, drop_amt * 0.45, blackout, brightness, life_amount * 0.45, breath_phase, heartbeat * 0.4, mouth_pulse, wetness * 0.6, goo_motion * 0.5)
 
 	if living_face and living_face.has_method("apply_audio"):
 		living_face.apply_audio(feat, section)
@@ -197,65 +162,43 @@ func apply_audio(feat: Dictionary, section_label: String) -> void:
 		portal_mat.set_shader_parameter("drop", drop_amt)
 		portal_mat.set_shader_parameter("charge", charge)
 		portal_mat.set_shader_parameter("blackout", blackout)
-		portal_mat.set_shader_parameter("shockwave", shock_t)
-		portal_mat.set_shader_parameter("time_scale", 0.48 + intensity * 1.45 + charge * 0.75)
+		portal_mat.set_shader_parameter("shockwave", clampf(shock_t * shock_mul, 0.0, 1.0))
+		portal_mat.set_shader_parameter("time_scale", (0.48 + intensity * 1.45 + charge * 0.75) * clampf(motion_mul, 0.65, 1.55))
 		portal_mat.set_shader_parameter("plate_mix", lerpf(0.32, 0.62, intensity))
 
-	# Aura is an independent "breath body" behind the logo.
 	if aura:
-		var aura_breathe := 1.0 + (breath_phase - 0.5) * 0.09 + bass * 0.08 + drop_amt * 0.12
+		var aura_breathe := 1.0 + ((breath_phase - 0.5) * 0.09 + bass * 0.08 + drop_amt * 0.12) * motion_mul
 		aura.scale = Vector2(10.2, 6.9) * aura_breathe
-		var aura_alpha := clampf(0.06 + intensity * 0.10 + drop_amt * 0.10 + heartbeat * 0.025, 0.035, 0.24)
-		aura.modulate = Color(
-			0.28 + drop_amt * 0.28,
-			0.70 + brightness * 0.18,
-			1.0,
-			aura_alpha * (1.0 - blackout * 0.65)
-		)
+		var aura_alpha := clampf((0.06 + intensity * 0.10 + drop_amt * 0.10 + heartbeat * 0.025) * float(tuning["mist"]), 0.03, 0.30)
+		aura.modulate = Color(0.28 + drop_amt * 0.28, 0.70 + brightness * 0.18, 1.0, aura_alpha * (1.0 - blackout * 0.65))
 
 	if glitter:
-		glitter.amount_ratio = clampf(0.18 + hat * 0.82, 0.12, 1.0)
-		glitter.speed_scale = 0.65 + intensity * 0.9
+		glitter.amount_ratio = clampf((0.18 + hat * 0.82) * clampf(motion_mul, 0.75, 1.35), 0.10, 1.0)
+		glitter.speed_scale = (0.65 + intensity * 0.9) * clampf(motion_mul, 0.70, 1.45)
 		glitter.emitting = hat > 0.035 and blackout < 0.86
 		var gp := glitter.process_material as ParticleProcessMaterial
 		if gp:
 			gp.color = Color(1.0, 0.85, 0.4, clampf(0.20 + hat, 0.0, 1.0))
 
 	if breath_mist:
-		breath_mist.amount_ratio = clampf(0.22 + breath_phase * 0.28 + bass * 0.34, 0.12, 0.86)
-		breath_mist.speed_scale = 0.55 + intensity * 0.65
-		breath_mist.modulate.a = (0.34 + bass * 0.28) * (1.0 - blackout * 0.72)
+		breath_mist.amount_ratio = clampf((0.22 + breath_phase * 0.28 + bass * 0.34) * float(tuning["mist"]), 0.10, 1.0)
+		breath_mist.speed_scale = (0.55 + intensity * 0.65) * clampf(motion_mul, 0.65, 1.30)
+		breath_mist.modulate.a = (0.34 + bass * 0.28) * float(tuning["mist"]) * (1.0 - blackout * 0.72)
 
 	if drool_mist:
-		drool_mist.amount_ratio = clampf(0.12 + mouth_pulse * 0.28 + intensity * 0.16, 0.08, 0.56)
-		drool_mist.speed_scale = 0.7 + bass * 0.45
-		drool_mist.modulate.a = (0.38 + wetness * 0.18) * (1.0 - blackout * 0.72)
+		drool_mist.amount_ratio = clampf((0.12 + mouth_pulse * 0.28 + intensity * 0.16) * float(tuning["drool"]), 0.06, 0.92)
+		drool_mist.speed_scale = (0.7 + bass * 0.45) * clampf(motion_mul, 0.70, 1.35)
+		drool_mist.modulate.a = clampf((0.38 + wetness * 0.18) * float(tuning["drool"]), 0.0, 0.95) * (1.0 - blackout * 0.72)
 
 	if shock_ring:
 		shock_ring.visible = shock_t > 0.0 and shock_t < 1.0
-		shock_ring.scale = Vector2.ONE * (0.35 + shock_t * 3.2)
-		shock_ring.modulate.a = (1.0 - shock_t) * maxf(drop_amt, 0.35)
+		shock_ring.scale = Vector2.ONE * (0.35 + shock_t * 3.2 * shock_mul)
+		shock_ring.modulate.a = clampf((1.0 - shock_t) * maxf(drop_amt, 0.35) * shock_mul, 0.0, 1.0)
 
 	features_applied.emit(feat)
 
 
-func _apply_logo_mat(
-	node: Sprite2D,
-	intensity: float,
-	kick: float,
-	bass: float,
-	snare_hit: float,
-	hat: float,
-	drop_amt: float,
-	blackout: float,
-	brightness: float,
-	life_amount: float,
-	breath_phase: float,
-	heartbeat: float,
-	mouth_pulse: float,
-	wetness: float,
-	goo_motion: float
-) -> void:
+func _apply_logo_mat(node: Sprite2D, intensity: float, kick: float, bass: float, snare_hit: float, hat: float, drop_amt: float, blackout: float, brightness: float, life_amount: float, breath_phase: float, heartbeat: float, mouth_pulse: float, wetness: float, goo_motion: float) -> void:
 	var logo_mat := node.material as ShaderMaterial
 	if logo_mat == null:
 		return
@@ -266,10 +209,7 @@ func _apply_logo_mat(
 	logo_mat.set_shader_parameter("hat", hat)
 	logo_mat.set_shader_parameter("drop", drop_amt)
 	logo_mat.set_shader_parameter("blackout", blackout)
-	logo_mat.set_shader_parameter(
-		"plasma_flow",
-		clampf(0.26 + brightness * 0.58 + intensity * 0.36, 0.0, 1.0)
-	)
+	logo_mat.set_shader_parameter("plasma_flow", clampf(0.26 + brightness * 0.58 + intensity * 0.36, 0.0, 1.0))
 	logo_mat.set_shader_parameter("parallax", bass * 0.011 - kick * 0.004)
 	logo_mat.set_shader_parameter("shockwave", shock_t)
 	logo_mat.set_shader_parameter("life", life_amount)
@@ -281,7 +221,6 @@ func _apply_logo_mat(
 
 
 func _heartbeat_pulse(t: float) -> float:
-	# Two short pulses followed by a longer rest: subtle organic heartbeat.
 	var phase := fmod(t, 1.48)
 	var first := pow(maxf(0.0, 1.0 - absf(phase - 0.10) / 0.085), 3.0)
 	var second := pow(maxf(0.0, 1.0 - absf(phase - 0.25) / 0.10), 3.0) * 0.62
@@ -305,7 +244,6 @@ func _process(delta: float) -> void:
 		if shock_t >= 1.0:
 			shock_t = 0.0
 
-	# Keep the monster visibly alive before the first audio frame arrives.
 	if _last_features.is_empty():
 		apply_audio(
 			{
@@ -316,6 +254,7 @@ func _process(delta: float) -> void:
 				"hat_energy": 0.025,
 				"drop_probability": 0.0,
 				"spectral_brightness": 0.22,
+				"creature_profile": _creature_profile,
 			},
 			section
 		)
