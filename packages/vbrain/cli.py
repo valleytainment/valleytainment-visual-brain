@@ -173,6 +173,27 @@ def serve(
         rprint("stopped")
 
 
+@app.command()
+def launch(
+    source: str = typer.Option("file", help="file | mic"),
+    no_godot: bool = typer.Option(False, "--no-godot", help="Skip opening Godot"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Skip opening panel"),
+    port: int = typer.Option(8765),
+) -> None:
+    """One-command show: live brain + control panel + Godot."""
+    from vbrain.launcher import launch_stack
+
+    rprint("[bold]Launching Valleytainment Visual Brain stack…[/bold]")
+    raise SystemExit(
+        launch_stack(
+            open_browser=not no_browser,
+            open_godot=not no_godot,
+            live_source=source,
+            port=port,
+        )
+    )
+
+
 @factory_app.command("status")
 def factory_status(
     comfy_url: str = typer.Option("http://127.0.0.1:8188", help="ComfyUI base URL"),
@@ -186,7 +207,7 @@ def factory_status(
     rprint(f"tier=[bold]{gpu.tier.value}[/bold] backend={gpu.backend} device={gpu.device_name}")
     for job in ("flux", "wan", "depth", "image"):
         rprint(f"  route {job} → {route_job(job, gpu)}")
-    rprint(json.dumps(report, indent=2)[:800])
+    rprint(json.dumps(report, indent=2)[:1200])
 
 
 @factory_app.command("init-manifest")
@@ -204,7 +225,7 @@ def factory_init_manifest(
 @factory_app.command("queue")
 def factory_queue(
     workflow: Path = typer.Argument(
-        Path("ai/comfyui/workflows/flux_schnell_hero_stub.json"),
+        Path("ai/comfyui/workflows/sd15_cyber_cathedral.json"),
         exists=True,
         readable=True,
     ),
@@ -215,7 +236,7 @@ def factory_queue(
     from vbrain.ai import ComfyUIClient, detect_gpu, route_job
 
     gpu = detect_gpu()
-    route = route_job("flux", gpu)
+    route = route_job("image", gpu)
     rprint(f"GPU route → [bold]{route}[/bold]")
     client = ComfyUIClient(comfy_url)
     graph = client.load_workflow(workflow)
@@ -227,6 +248,78 @@ def factory_queue(
         return
     result = client.queue_prompt(graph)
     rprint(result)
+
+
+@factory_app.command("generate-world")
+def factory_generate_world(
+    workflow: Path = typer.Option(
+        Path("ai/comfyui/workflows/sd15_cyber_cathedral.json"),
+        exists=True,
+        readable=True,
+    ),
+    comfy_url: str = typer.Option("http://127.0.0.1:8188"),
+    timeout: float = typer.Option(900.0, help="Seconds to wait for CPU/GPU render"),
+    procedural: bool = typer.Option(
+        False, "--procedural", help="Skip Comfy and bake a procedural plate"
+    ),
+) -> None:
+    """Generate a cyber-cathedral world plate and install it into Godot textures."""
+    import runpy
+
+    from vbrain.ai import AssetRecord, ComfyUIClient, register_placeholder_hero
+    from vbrain.ai.asset_manifest import AssetManifest
+    from vbrain.ai.comfy_client import ingest_world_plate
+
+    plate: Path | None = None
+    model_name = "procedural"
+
+    client = ComfyUIClient(comfy_url)
+    if not procedural and client.available():
+        ckpts = client.list_checkpoints()
+        rprint(f"Checkpoints: {ckpts or '(none)'}")
+        graph = client.load_workflow(workflow)
+        rprint(f"[bold]Generating[/bold] via {workflow.name}…")
+        try:
+            saved = client.run_and_save(
+                graph, Path("assets/worlds/raw"), timeout_s=timeout, prefix="cathedral"
+            )
+            if saved:
+                plate = ingest_world_plate(
+                    saved[0],
+                    Path("assets/worlds"),
+                    Path("apps/visual-engine/assets/textures"),
+                )
+                model_name = ckpts[0] if ckpts else "comfy"
+            else:
+                rprint("[yellow]Comfy returned no images[/yellow]; baking procedural plate")
+        except Exception as exc:
+            rprint(f"[yellow]ComfyUI failed[/yellow] ({exc}); baking procedural plate")
+
+    if plate is None:
+        runpy.run_path(str(Path("scripts/bake_world_plate.py")), run_name="__main__")
+        plate = Path("assets/worlds/cyber_cathedral_plate.png")
+
+    register_placeholder_hero(
+        Path("assets/manifest.json"),
+        Path("apps/visual-engine/assets/brand/valleytainment_logo.png"),
+    )
+    manifest = AssetManifest.load(Path("assets/manifest.json"))
+    manifest.add(
+        AssetRecord(
+            asset_id="cyber_cathedral_plate",
+            kind="image",
+            path=str(plate),
+            prompt="cyber cathedral festival LED backdrop",
+            model=model_name,
+            workflow=(
+                str(workflow) if model_name != "procedural" else "scripts/bake_world_plate.py"
+            ),
+            tags=["world", "backdrop", "ai-factory"],
+        )
+    )
+    manifest.save(Path("assets/manifest.json"))
+    rprint(f"[green]World plate installed →[/green] {plate}")
+    rprint("Press R in Godot to reload the hero texture.")
 
 
 def _print_summary(pack) -> None:

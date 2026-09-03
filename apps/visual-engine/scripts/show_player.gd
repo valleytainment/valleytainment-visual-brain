@@ -11,6 +11,7 @@ extends Node
 var runtime: Dictionary = {}
 var playing: bool = false
 var live_mode: bool = false
+var hybrid_mode: bool = false
 var show_time: float = 0.0
 var duration: float = 0.0
 var bpm: float = 128.0
@@ -74,7 +75,9 @@ func _load_runtime(path: String) -> void:
 func _refresh_hud_title() -> void:
 	var title: String = str(runtime.get("story", {}).get("title", runtime.get("show_id", "SHOW")))
 	var mode := "LIVE API" if live_mode else "PREPARED"
-	info_label.text = "%s\n%s · BPM %.1f · seed %s · hero logo\nSpace play/pause · L live · R restart · [ ] seek" % [
+	if hybrid_mode:
+		mode = "HYBRID"
+	info_label.text = "%s\n%s · BPM %.1f · seed %s · hero logo\nSpace · L live · H hybrid · R restart · [ ] seek" % [
 		title,
 		mode,
 		bpm,
@@ -99,11 +102,27 @@ func _process(delta: float) -> void:
 				"spectral_brightness": float(live.get("hat", 0.0)),
 				"section": current_section,
 			}
-		current_section = str(payload.get("section", current_section))
+		# HYBRID: prepared section timeline + live band energies
+		if hybrid_mode and not frames.is_empty():
+			show_time += delta
+			if duration > 0.0 and show_time > duration:
+				show_time = fmod(show_time, duration)
+				frame_index = 0
+			_update_section()
+			var prepared := _features_at(show_time)
+			payload["section"] = current_section
+			payload["intensity"] = maxf(float(payload.get("intensity", 0.0)), float(prepared.get("intensity", 0.0)))
+			payload["drop_probability"] = maxf(
+				float(payload.get("drop_probability", 0.0)),
+				float(prepared.get("drop_probability", 0.0))
+			)
+		else:
+			current_section = str(payload.get("section", current_section))
 		bpm = float(payload.get("bpm", bpm))
 		_drive_features(payload)
-		section_label.text = "%s  ·  LIVE  ·  I=%.2f" % [
+		section_label.text = "%s  ·  %s  ·  I=%.2f" % [
 			current_section,
+			"HYBRID" if hybrid_mode else "LIVE",
 			float(payload.get("intensity", 0.0)),
 		]
 		return
@@ -169,17 +188,31 @@ func _drive_features(feat: Dictionary) -> void:
 
 func _toggle_live() -> void:
 	live_mode = not live_mode
+	if not live_mode:
+		hybrid_mode = false
 	if audio_bus.has_method("enable_live"):
 		audio_bus.enable_live(live_mode, LIVE_API)
 	playing = not live_mode
 	_refresh_hud_title()
 
 
+func _toggle_hybrid() -> void:
+	hybrid_mode = not hybrid_mode
+	if hybrid_mode and not live_mode:
+		live_mode = true
+		if audio_bus.has_method("enable_live"):
+			audio_bus.enable_live(true, LIVE_API)
+		playing = false
+	_refresh_hud_title()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_L:
 		_toggle_live()
+	elif event is InputEventKey and event.pressed and event.keycode == KEY_H:
+		_toggle_hybrid()
 	elif event.is_action_pressed("ui_accept") or (event is InputEventKey and event.pressed and event.keycode == KEY_SPACE):
-		if live_mode:
+		if live_mode and not hybrid_mode:
 			return
 		playing = not playing
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_R:
@@ -187,8 +220,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		frame_index = 0
 		playing = true
 		live_mode = false
+		hybrid_mode = false
 		if audio_bus.has_method("enable_live"):
 			audio_bus.enable_live(false)
+		if hero and hero.has_method("_try_load_world_plate"):
+			hero._try_load_world_plate()
 		_refresh_hud_title()
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_BRACKETLEFT:
 		show_time = maxf(0.0, show_time - 4.0)

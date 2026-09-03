@@ -13,19 +13,14 @@ cd valleytainment-visual-brain
 python3.12 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
-# System check
-vbrain status
+# ONE COMMAND — live brain + panel + Godot
+vbrain launch
 
-# Prepared show from a track
-vbrain analyze /path/to/track.wav
-
-# Live brain + control panel (demo audio if no track)
-vbrain live --source file --seconds 0
-# → http://127.0.0.1:8765/
-
-# Godot 4.3+: open apps/visual-engine, Play
-# Press L inside Godot to follow the live API
+# Or generate a real AI world plate into Godot (uses your local ComfyUI / SD1.5)
+vbrain factory generate-world
 ```
+
+Godot keys: `Space` · `L` live · `H` hybrid · `R` restart · `[` `]` seek
 
 ## Commands
 

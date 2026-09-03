@@ -75,10 +75,18 @@ def test_performance_state_roundtrip():
     assert handler is not None
 
 
-def test_flux_workflow_stub_loads():
-    path = Path("ai/comfyui/workflows/flux_schnell_hero_stub.json")
+def test_sd15_workflow_stub_loads():
+    path = Path("ai/comfyui/workflows/sd15_cyber_cathedral.json")
     data = json.loads(path.read_text())
-    assert "prompt" in data
+    assert data["4"]["inputs"]["ckpt_name"] == "v1-5-pruned-emaonly.safetensors"
     client = ComfyUIClient()
     graph = client.load_workflow(path)
     assert "3" in graph
+
+
+def test_find_godot():
+    from vbrain.launcher import find_godot
+
+    # On this machine Godot is installed; elsewhere may be None — just ensure callable.
+    path = find_godot()
+    assert path is None or "Godot" in path or path.endswith("godot")

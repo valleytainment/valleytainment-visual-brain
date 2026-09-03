@@ -1,5 +1,7 @@
 shader_type canvas_item;
 
+uniform sampler2D world_tex : source_color, hint_default_black;
+uniform float has_world : hint_range(0.0, 1.0) = 0.0;
 uniform float intensity : hint_range(0.0, 1.0) = 0.2;
 uniform float kick : hint_range(0.0, 1.0) = 0.0;
 uniform float bass : hint_range(0.0, 1.0) = 0.0;
@@ -9,6 +11,7 @@ uniform float charge : hint_range(0.0, 1.0) = 0.0;
 uniform float blackout : hint_range(0.0, 1.0) = 0.0;
 uniform float shockwave : hint_range(0.0, 1.0) = 0.0;
 uniform float time_scale : hint_range(0.1, 4.0) = 1.0;
+uniform float plate_mix : hint_range(0.0, 1.0) = 0.45;
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
@@ -22,7 +25,6 @@ void fragment() {
 	float r = length(uv);
 	float a = atan(uv.y, uv.x);
 
-	// Portal interior — forward tunnel through cosmic void
 	float zoom = 0.55 + charge * 0.35 + drop * 0.5 + kick * 0.08;
 	float tunnel = fract(1.2 / max(r * (1.15 - bass * 0.2), 0.08) + t * (0.2 + intensity * 0.7 + charge * 0.4));
 	float rings = smoothstep(0.2, 0.0, abs(tunnel - 0.5));
@@ -37,15 +39,21 @@ void fragment() {
 	col = mix(col, gold, spokes * 0.12 * (0.3 + kick));
 	col += plasma * hat * 0.08 * step(0.97, hash(floor(uv * 60.0 + t)));
 
-	// Build charge glow at rim
+	// AI world plate — parallax scroll + bass breathe
+	if (has_world > 0.5) {
+		vec2 puv = UV;
+		puv += vec2(sin(t * 0.15) * 0.01, cos(t * 0.11) * 0.008);
+		puv = (puv - 0.5) * (1.0 - bass * 0.04 - kick * 0.02) + 0.5;
+		vec3 plate = texture(world_tex, clamp(puv, 0.0, 1.0)).rgb;
+		col = mix(col, plate * (0.55 + intensity * 0.55), plate_mix * (1.0 - blackout));
+	}
+
 	float rim = smoothstep(0.35, 1.2, r);
 	col += gold * rim * charge * 0.45;
 
-	// Shockwave ring on drop
 	float sw = abs(r - shockwave * 1.4);
 	col += (gold * 0.7 + plasma * 0.5) * smoothstep(0.06, 0.0, sw) * shockwave;
 
-	// Vignette + blackout
 	col *= smoothstep(1.45, 0.25, r) * (1.0 - blackout * 0.95);
 	col *= 0.55 + intensity * 0.7;
 

@@ -10,7 +10,7 @@
       "model": "brand-artwork",
       "seed": null,
       "workflow": "",
-      "created_at": "2026-09-03T09:03:12.825359+00:00",
+      "created_at": "2026-09-03T09:16:45.800913+00:00",
       "tags": [
         "hero",
         "logo",
@@ -19,6 +19,22 @@
       "meta": {
         "role": "canonical_hero_scene"
       }
+    },
+    {
+      "asset_id": "cyber_cathedral_plate",
+      "kind": "image",
+      "path": "assets/worlds/cyber_cathedral_plate.png",
+      "prompt": "cyber cathedral festival LED backdrop",
+      "model": "procedural",
+      "seed": null,
+      "workflow": "scripts/bake_world_plate.py",
+      "created_at": "2026-09-03T09:16:45.802183+00:00",
+      "tags": [
+        "world",
+        "backdrop",
+        "ai-factory"
+      ],
+      "meta": {}
     }
   ]
 }
