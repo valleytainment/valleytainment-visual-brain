@@ -1,0 +1,58 @@
+[gd_scene load_steps=5 format=3 uid="uid://vbrain_main"]
+
+[ext_resource type="Script" path="res://scripts/show_player.gd" id="1_player"]
+[ext_resource type="Shader" path="res://shaders/reactive_tunnel.gdshader" id="2_shader"]
+[ext_resource type="Script" path="res://scripts/audio_bus.gd" id="3_audio"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_tunnel"]
+shader = ExtResource("2_shader")
+shader_parameter/intensity = 0.2
+shader_parameter/kick = 0.0
+shader_parameter/bass = 0.0
+shader_parameter/hat = 0.0
+shader_parameter/time_scale = 1.0
+shader_parameter/glitch = 0.0
+shader_parameter/chromatic = 0.0
+shader_parameter/color_a = Color(0.04, 0.04, 0.08, 1)
+shader_parameter/color_b = Color(1, 0, 0.235, 1)
+shader_parameter/color_c = Color(0.302, 0.933, 0.918, 1)
+
+[node name="Main" type="Node"]
+script = ExtResource("1_player")
+
+[node name="AudioBus" type="Node" parent="."]
+script = ExtResource("3_audio")
+
+[node name="ViewportRoot" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_tunnel")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Info" type="Label" parent="HUD"]
+offset_left = 24.0
+offset_top = 20.0
+offset_right = 900.0
+offset_bottom = 160.0
+theme_override_colors/font_color = Color(0.85, 0.9, 0.95, 0.85)
+theme_override_font_sizes/font_size = 18
+text = "VALLEYTAINMENT VISUAL BRAIN
+Drop shows/<id>/runtime.json → res://../../shows/  |  Space = play/pause"
+
+[node name="SectionLabel" type="Label" parent="HUD"]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -80.0
+offset_right = 640.0
+offset_bottom = -24.0
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 0, 0.235, 0.95)
+theme_override_font_sizes/font_size = 28
+text = "SECTION —"

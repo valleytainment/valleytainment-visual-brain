@@ -1,0 +1,29 @@
+{
+  "project": "valleytainment-visual-brain",
+  "modes": {
+    "PREPARED": "Full analysis + director + optional AI asset factory",
+    "LIVE": "Real-time FFT against prebuilt asset universe",
+    "HYBRID": "Pregenerated hero moments + live procedural + director seeds"
+  },
+  "defaults": {
+    "style": "biomechanical_cyber_cathedral",
+    "seed": 926183,
+    "artist": "Valleytainment",
+    "ollama_model": "qwen3:8b",
+    "analyzer": {
+      "sr": 22050,
+      "hop_length": 512,
+      "frame_stride": 4
+    }
+  },
+  "gpu_tiers": {
+    "high": ["wan2.2", "hunyuanvideo-1.5"],
+    "low": ["framepack", "ltx"],
+    "none": ["prebuilt-assets-only"]
+  },
+  "comfyui": {
+    "enabled": false,
+    "base_url": "http://127.0.0.1:8188",
+    "note": "AI factory is optional — performance PC runs Godot from show packs"
+  }
+}
