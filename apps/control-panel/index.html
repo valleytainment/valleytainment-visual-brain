@@ -80,8 +80,9 @@
       margin: 4px 6px 4px 0;
       cursor: pointer;
     }
-    button:hover { border-color: var(--gold); }
+    button:hover, select:hover { border-color: var(--gold); }
     .danger { border-color: var(--accent); color: #ffb3c7; }
+    .profile-note { color: var(--muted); font-size: 0.82rem; line-height: 1.4; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -94,12 +95,25 @@
       <div class="big" id="section">—</div>
       <div class="row"><span>BPM</span><strong id="bpm">—</strong></div>
       <div class="row"><span>Action</span><strong id="action">—</strong></div>
+      <div class="row"><span>Creature</span><strong id="creatureNow">BALANCED</strong></div>
       <div class="row"><span>Intensity</span><strong id="intensity">0.00</strong></div>
       <div class="meter"><span id="intensityBar"></span></div>
       <div class="row"><span>Kick</span><strong id="kick">0.00</strong></div>
       <div class="meter"><span id="kickBar"></span></div>
       <div class="row"><span>Bass</span><strong id="bass">0.00</strong></div>
       <div class="meter"><span id="bassBar"></span></div>
+    </section>
+
+    <section>
+      <h2>Creature Personality</h2>
+      <select id="creatureProfile" onchange="patch({creature_profile: this.value})">
+        <option value="BALANCED">Balanced</option>
+        <option value="WET">Wet</option>
+        <option value="CREEPY">Creepy</option>
+        <option value="AGGRESSIVE">Aggressive</option>
+        <option value="UNHINGED">Unhinged</option>
+      </select>
+      <p class="profile-note" id="profileNote">Neutral festival baseline.</p>
     </section>
 
     <section>
@@ -148,6 +162,13 @@
   </div>
 
   <script>
+    const profileNotes = {
+      BALANCED: 'Neutral festival baseline.',
+      WET: 'Glossy, viscous, slime and drool forward.',
+      CREEPY: 'Slower, watchful, restrained and uncanny.',
+      AGGRESSIVE: 'Punchier motion, stronger depth and shock response.',
+      UNHINGED: 'Maximum safe procedural chaos for short peak moments.'
+    };
     function setBar(id, v) {
       const el = document.getElementById(id);
       el.style.width = Math.round(Math.max(0, Math.min(1, v)) * 100) + '%';
@@ -157,14 +178,18 @@
       const data = await r.json();
       const live = data.live || {};
       const controls = data.controls || {};
+      const profile = controls.creature_profile || live.creature_profile || 'BALANCED';
       document.getElementById('section').textContent = live.section || '—';
       document.getElementById('bpm').textContent = (live.bpm ?? '—');
       document.getElementById('action').textContent = live.action || 'tick';
+      document.getElementById('creatureNow').textContent = profile;
       document.getElementById('intensity').textContent = Number(live.intensity || 0).toFixed(2);
       document.getElementById('kick').textContent = Number(live.kick_energy || 0).toFixed(2);
       document.getElementById('bass').textContent = Number(live.bass_energy || 0).toFixed(2);
       document.getElementById('seed').textContent = controls.seed ?? live.seed ?? '—';
       document.getElementById('mode').textContent = controls.mode || 'LIVE';
+      document.getElementById('creatureProfile').value = profile;
+      document.getElementById('profileNote').textContent = profileNotes[profile] || profileNotes.BALANCED;
       setBar('intensityBar', live.intensity || 0);
       setBar('kickBar', live.kick_energy || 0);
       setBar('bassBar', live.bass_energy || 0);
@@ -172,11 +197,12 @@
       if (controls.resolution) document.getElementById('resolution').value = controls.resolution;
     }
     async function patch(payload) {
-      await fetch('/api/controls', {
+      const r = await fetch('/api/controls', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
       });
+      if (!r.ok) console.error('Control patch rejected', await r.text());
       refresh();
     }
     async function cue(action) {
